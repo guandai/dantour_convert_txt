@@ -10,20 +10,22 @@ function convert_text_to_data($filePath) {
     $itineraryText = file_get_contents($filePath);
 
     // Extract post_title (概述中的标题)
-    preg_match('/##概述\s*\n(.*)\n/', $itineraryText, $overviewMatches);
-    print_r($overviewMatches);
+    $title_pattern = '/##概述\s*\n(.*)\n/';
+    preg_match($title_pattern, $itineraryText, $overviewMatches);
+
     if (isset($overviewMatches[1])) {
         $post_title = trim($overviewMatches[1]);
-        $itineraryText = preg_replace('/##概述\s*\n(.*)\n/', '', $itineraryText);
+        $itineraryText = preg_replace($title_pattern, '', $itineraryText);
     } else {
         $post_title = 'Unknown Title';  // Default if no match
     }
 
     // Extract post_excerpt (摘要)
-    preg_match('/##摘要\n(.*)\n/', $itineraryText, $summaryMatches);
+    $title_pattern = '/##摘要\s*\n(.*)\n/';
+    preg_match($title_pattern , $itineraryText, $summaryMatches);
     if (isset($summaryMatches[1])) {
         $post_excerpt = trim($summaryMatches[1]);
-        $itineraryText = preg_replace('/##摘要\s*\n(.*)\n/', '', $itineraryText);
+        $itineraryText = preg_replace($title_pattern , '', $itineraryText);
     } else {
         $post_excerpt = $post_title;  // Default if no match
     }
@@ -91,7 +93,7 @@ function convert_text_to_data($filePath) {
 }
 
 // Directory containing the .txt files
-$folderPath = '/Users/zhengdai/Library/CloudStorage/OneDrive-Personal/dantour/txt/format';
+$folderPath = '../format';
 $templateFilePath = 'template.csv';  // Path to your template.csv file
 $newFilePath = 'output_all.csv';  // Specify the path for the updated CSV
 
