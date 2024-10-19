@@ -98,8 +98,11 @@ function convert_text_to_data($filePath) {
     ];
 }
 
-
-// Function to display usage instructions
+/**
+ * Displays usage instructions.
+ *
+ * @param string $scriptName Name of the script.
+ */
 function display_usage($scriptName) {
     echo "Usage: php $scriptName <file_pattern>\n";
     echo "Example: php $scriptName '*.txt'\n";
@@ -111,19 +114,23 @@ if (php_sapi_name() !== 'cli') {
     die("This script must be run from the command line.\n");
 }
 
-// Ensure that a file pattern argument is provided
-if ($argc < 2) {
+// Get the file pattern from the first argument if provided, else default to '*.txt'
+$filePattern = $argv[1] ?? '*.txt';
+
+// Optional: Validate the file pattern (basic validation)
+if (!is_string($filePattern) || empty($filePattern)) {
+    echo "Invalid file pattern provided.\n";
     display_usage($argv[0]);
 }
 
-// Get the file pattern from the first argument
-$filePattern = $argv[1];
-
 // Directory containing the .txt files
 $folderPath = '../format';
+// Ensure the folder path does not end with a slash
+$folderPath = rtrim($folderPath, '/');
+
 // $templateFilePath should be a complete path if not in the same directory
 $templateFilePath = 'template.csv';  // Path to your template.csv file
-$newFilePath = 'output_all.csv';  // Specify the path for the updated CSV
+$newFilePath = 'output_'.$filePattern.'.csv';      // Specify the path for the updated CSV
 
 // Construct the full glob pattern
 $globPattern = $folderPath . '/' . $filePattern;
