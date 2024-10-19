@@ -1,9 +1,15 @@
 <?php
 
+/**
+ * Converts itinerary text files to serialized data.
+ *
+ * @param string $filePath Path to the itinerary text file.
+ * @return array Extracted data including post_title, post_excerpt, and serialized itineraries.
+ */
 function convert_text_to_data($filePath) {
     // Check if the file exists
     if (!file_exists($filePath)) {
-        die("File not found: $filePath");
+        die("File not found: $filePath\n");
     }
 
     // Read the contents of the file
@@ -92,16 +98,41 @@ function convert_text_to_data($filePath) {
     ];
 }
 
+
+// Function to display usage instructions
+function display_usage($scriptName) {
+    echo "Usage: php $scriptName <file_pattern>\n";
+    echo "Example: php $scriptName '*.txt'\n";
+    exit(1);
+}
+
+// Check if the script is run from the command line
+if (php_sapi_name() !== 'cli') {
+    die("This script must be run from the command line.\n");
+}
+
+// Ensure that a file pattern argument is provided
+if ($argc < 2) {
+    display_usage($argv[0]);
+}
+
+// Get the file pattern from the first argument
+$filePattern = $argv[1];
+
 // Directory containing the .txt files
 $folderPath = '../format';
+// $templateFilePath should be a complete path if not in the same directory
 $templateFilePath = 'template.csv';  // Path to your template.csv file
 $newFilePath = 'output_all.csv';  // Specify the path for the updated CSV
 
-// Scan the folder for all .txt files
-$txtFiles = glob($folderPath . '/*.txt');
+// Construct the full glob pattern
+$globPattern = $folderPath . '/' . $filePattern;
+
+// Scan the folder for all matching files
+$txtFiles = glob($globPattern);
 
 if (empty($txtFiles)) {
-    die("No .txt files found in the directory: $folderPath");
+    die("No files matched the pattern '$filePattern' in the directory: $folderPath\n");
 }
 
 // Open the CSV template for reading
@@ -112,6 +143,10 @@ if (($templateHandle = fopen($templateFilePath, "r")) !== FALSE) {
     $itineraryDataIndex = array_search('wp_travel_trip_itinerary_data', $header);
     $postTitleIndex = array_search('post_title', $header);
     $postExcerptIndex = array_search('post_excerpt', $header);
+
+    if ($itineraryDataIndex === FALSE || $postTitleIndex === FALSE || $postExcerptIndex === FALSE) {
+        die("One or more required columns not found in the template CSV.\n");
+    }
 
     // Create a new CSV for writing the output
     if (($outputHandle = fopen($newFilePath, 'w')) !== FALSE) {
@@ -146,13 +181,13 @@ if (($templateHandle = fopen($templateFilePath, "r")) !== FALSE) {
 
         // Close the output file
         fclose($outputHandle);
-        echo "CSV file has been updated successfully at: $newFilePath";
+        echo "CSV file has been updated successfully at: $newFilePath\n";
     } else {
-        echo "Error opening the file for writing.";
+        echo "Error opening the file for writing: $newFilePath\n";
     }
 
     // Close the template file
     fclose($templateHandle);
 } else {
-    echo "Error opening the template CSV file for reading.";
+    echo "Error opening the template CSV file for reading: $templateFilePath\n";
 }
