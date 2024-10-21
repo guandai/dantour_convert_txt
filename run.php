@@ -1,5 +1,7 @@
 <?php
 
+include 'gen-wp-term.php';
+
 define('DEFAULT_FILE_PATTERN', '*.txt');
 define('DEFAULT_TEMPLATE', 'template.csv');
 
@@ -16,35 +18,25 @@ if (php_sapi_name() !== 'cli') {
  * @return array Index of the required columns in the CSV file.
  */
 function getIndex ($header , $templateHandle) {
-    
-
     // Determine the index of the required columns
     $itineraryDataIndex = array_search('wp_travel_trip_itinerary_data', $header);
     $postTitleIndex = array_search('post_title', $header);
     $postExcerptIndex = array_search('post_excerpt', $header);
+    $postTaxonomiesIndex = array_search('taxonomies', $header);
     if ($itineraryDataIndex === FALSE || $postTitleIndex === FALSE || $postExcerptIndex === FALSE) {
         die("One or more required columns not found in the template CSV.\n");
     }
 
-    return [$itineraryDataIndex, $postTitleIndex, $postExcerptIndex];
+    return [$itineraryDataIndex, $postTitleIndex, $postExcerptIndex, $postTaxonomiesIndex];
 }
 
-
 /**
- * Converts itinerary text files to serialized data.
+ * Extracts post_title and post_excerpt from the itinerary text.
  *
- * @param string $filePath Path to the itinerary text file.
- * @return array Extracted data including post_title, post_excerpt, and serialized itineraries.
+ * @param string $itineraryText Itinerary text to extract data from.
+ * @return array Extracted post_title and post_excerpt.
  */
-function convert_text_to_data($filePath) {
-    // Check if the file exists
-    if (!file_exists($filePath)) {
-        die("File not found: $filePath\n");
-    }
-
-    // Read the contents of the file
-    $itineraryText = file_get_contents($filePath);
-
+function getPostLevelData(&$itineraryText) {
     // Extract post_title (概述中的标题)
     $title_pattern = '/##概述\s*\n(.*)\n/';
     preg_match($title_pattern, $itineraryText, $overviewMatches);
@@ -66,8 +58,18 @@ function convert_text_to_data($filePath) {
         $post_excerpt = $post_title;  // Default if no match
     }
 
-    // Split into sections based on "-----------------------------------"
-    $days = preg_split('/-{3,}/', $itineraryText);
+    
+    return [$post_title, $post_excerpt, $itineraryText];
+}
+
+
+/**
+ * Extracts itineraries from the itinerary text.
+ *
+ * @param array $days Array of days in the itinerary.
+ * @return array Extracted itineraries.
+ */
+function getItineraries($days) {
     $itineraries = [];
 
     foreach ($days as $day) {
@@ -90,11 +92,7 @@ function convert_text_to_data($filePath) {
                     $dayArray['title'] = $content;
                     break;
                 case '日期':
-                    if ($content == '无') {
-                        $dayArray['date'] = '';
-                    } else {
-                        $dayArray['date'] = $content;
-                    }
+                    $dayArray['date'] = ($content == '无') ? '' : $content;
                     break;
                 case '早餐':
                     $desc .= "<p><strong>早餐</strong>: $content ";
@@ -117,15 +115,39 @@ function convert_text_to_data($filePath) {
         $itineraries[] = $dayArray;
     }
 
-    // Serialize the array of itineraries
-    $serializedItineraries = serialize($itineraries);
+    return $itineraries;
+}
 
-    // Return extracted data
-    return [
-        'post_title' => $post_title,
-        'post_excerpt' => $post_excerpt,
-        'serializedItineraries' => $serializedItineraries
+/**
+ * Converts itinerary text files to serialized data.
+ *
+ * @param string $filePath Path to the itinerary text file.
+ * @return array Extracted data including post_title, post_excerpt, and serialized itineraries.
+ */
+function convert_text_to_data($filePath) {
+    // Check if the file exists
+    if (!file_exists($filePath)) {
+        die("File not found: $filePath\n");
+    }
+
+    // Read the contents of the file
+    $itineraryText = file_get_contents($filePath);
+    [$post_title, $post_excerpt, $itineraryText] = getPostLevelData($itineraryText);
+
+    // Split into sections based on "-----------------------------------"
+    $days = preg_split('/-{3,}/', $itineraryText);
+
+    $taxonomies = [
+        'itinerary_types' => [],
+        'travel_locations' => [],
+        'activity' => ['coffee', 'shopping'],
+        'travel_keywords' => [$file_name = pathinfo($filePath, PATHINFO_BASENAME)],
     ];
+
+    // Serialize the array of itineraries
+    $serializedItineraries = serialize(getItineraries($days));
+    $serializedTaxonomies = getTaxonomies($taxonomies);
+    return [$serializedItineraries, $serializedTaxonomies, $post_title, $post_excerpt];
 }
 
 /**
@@ -213,17 +235,14 @@ function getOutputHandle ($newFilePath, $header) {
  * @param array $header Header row of the CSV file.
  */
 function writeToOutput ($templateHandle, $outputHandle, $txtFiles, $header) {
-    [$itineraryDataIndex, $postTitleIndex, $postExcerptIndex] = getIndex($header , $templateHandle);
+    [$itineraryDataIndex, $postTitleIndex, $postExcerptIndex, $postTaxonomiesIndex] = getIndex($header , $templateHandle);
 
     // Process each .txt file
     foreach ($txtFiles as $txtFile) {
         echo "Processing file: $txtFile\n";
 
         // Extract data from the .txt file
-        $extractedData = convert_text_to_data($txtFile);
-        $post_title = $extractedData['post_title'];
-        $post_excerpt = $extractedData['post_excerpt'];
-        $serializedData = $extractedData['serializedItineraries'];
+        [$serializedItineraries, $serializedTaxonomies, $post_title, $post_excerpt] = convert_text_to_data($txtFile);
 
         // Reset the template data for each row
         fseek($templateHandle, 0);  // Reset template pointer to the start
@@ -232,9 +251,10 @@ function writeToOutput ($templateHandle, $outputHandle, $txtFiles, $header) {
         // Read each line of the template CSV file
         while (($templateRow = fgetcsv($templateHandle)) !== FALSE) {
             // Update the necessary columns with extracted data
-            $templateRow[$itineraryDataIndex] = $serializedData;
+            $templateRow[$itineraryDataIndex] = $serializedItineraries;
             $templateRow[$postTitleIndex] = $post_title;
             $templateRow[$postExcerptIndex] = $post_excerpt;
+            $templateRow[$postTaxonomiesIndex] = $serializedTaxonomies;
 
             // Write the updated row to the output CSV
             fputcsv($outputHandle, $templateRow);
