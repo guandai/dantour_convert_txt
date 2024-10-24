@@ -1,7 +1,7 @@
 <?php
 
-include 'gen-wp-term.php';
-
+include '_gen-wp-term.php';
+include '_pre.php';
 define('DEFAULT_FILE_PATTERN', '*.txt');
 define('DEFAULT_TEMPLATE', 'template.csv');
 
@@ -63,60 +63,6 @@ function getPostLevelData(&$itineraryText) {
 }
 
 
-/**
- * Extracts itineraries from the itinerary text.
- *
- * @param array $days Array of days in the itinerary.
- * @return array Extracted itineraries.
- */
-function getItineraries($days) {
-    $itineraries = [];
-
-    foreach ($days as $day) {
-        if (empty(trim($day))) continue;
-
-        // Parse each section of the day
-        preg_match_all('/##(.*?)\n(.*?)(?=(\n##|\z))/s', $day, $matches, PREG_SET_ORDER);
-        $dayArray = [];
-        $desc = '';
-
-        foreach ($matches as $match) {
-            $label = trim($match[1]);
-            $content = trim($match[2]);
-
-            switch ($label) {
-                case '天数':
-                    $dayArray['label'] = $content;
-                    break;
-                case '城市':
-                    $dayArray['title'] = $content;
-                    break;
-                case '日期':
-                    $dayArray['date'] = ($content == '无') ? '' : $content;
-                    break;
-                case '早餐':
-                    $desc .= "<p><strong>早餐</strong>: $content ";
-                    break;
-                case '午餐':
-                    $desc .= "<strong>午餐</strong>: $content ";
-                    break;
-                case '晚餐':
-                    $desc .= "<strong>晚餐</strong>: $content</p>";
-                    break;
-                default:
-                    $desc .= "<strong>$label</strong>: $content</p><br/>";
-            }
-        }
-
-        if (!empty($desc)) {
-            $dayArray['desc'] = $desc;
-        }
-
-        $itineraries[] = $dayArray;
-    }
-
-    return $itineraries;
-}
 
 /**
  * Converts itinerary text files to serialized data.
@@ -170,7 +116,7 @@ function display_usage($scriptName) {
  */
 function getNewFilePath ($arg) {
     // Directory containing the .txt files
-    $folderPath = '../format';
+    $folderPath = './data/format';
     // Ensure the folder path does not end with a slash
     $folderPath = rtrim($folderPath, '/');
 

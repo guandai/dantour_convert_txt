@@ -1,7 +1,7 @@
 <?php
 
 /**
- * 验证TXT文件并获取每个 ##[key] 之后的 value
+ * 验证 ./data/format 下所有 TXT 文件并获取每个 ##[key] 之后的 value
  * @param string $directory 需要检查的文件夹路径
  */
 function parseTxtFiles($directory) {
@@ -33,18 +33,21 @@ function parseTxtFiles($directory) {
 
             // 检查是否是 ##[key] 格式
             if (preg_match('/^##(.*)$/', $line, $matches)) {
+                
+
+                // 记录新的 key
+                $currentKey = trim($matches[1]);
+
                 // 如果有上一个 key 和 value，输出保存的值
                 if ($currentKey == null) {
-                    echo "!emptyKey: $currentKey\n";
+                    echo  $line;
+                    echo "!Not fount Key: $currentKey\n";
                 }
 
                 if ($currentKey != null && empty($recordValues)) {
                     echo "!emptyValue: $currentKey\n";
                 }
-
-                // 记录新的 key
-                $currentKey = trim($matches[1]);
-
+                
                 // 检查key是否在允许列表中
                 if (!in_array($currentKey, $allowedKeys)) {
                     echo "不合法的key: $currentKey in file $file\n";
@@ -75,7 +78,7 @@ function parseTxtFiles($directory) {
 }
 
 // 设置要检查的文件夹路径
-$directory = '/Users/zhengdai/Library/CloudStorage/OneDrive-Personal/dantour/txt/format'; // 你要检查的目录路径
+$directory = './data/format'; // 你要检查的目录路径
 $aaa = parseTxtFiles($directory);
 
 echo $aaa;
