@@ -1,112 +1,110 @@
 <?php
 
 /**
- * Processes all JSON files in the specified directory, renaming all '活动' keys.
+ * Processes all JSON files in the specified directory, combining '活动' entries into an array.
  *
  * @param string $directory The directory containing the JSON files.
  */
-function processJsonFiles($directory) {
+function processJsonFiles($directory)
+{
     // Get all JSON files in the directory
     $jsonFiles = glob($directory . '/*.json');
 
     foreach ($jsonFiles as $jsonFile) {
         echo "Processing file: $jsonFile\n";
 
-        // Read the contents of the JSON file
-        $jsonContent = file_get_contents($jsonFile);
-        // Since JSON cannot have duplicate keys, we'll use regex to handle possible duplicates
-        $data = json_decode($jsonContent, true);
+        // Read the JSON content as an array of lines
+        $lines = file($jsonFile);
 
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            // Handle invalid JSON due to duplicate keys
-            echo "JSON parse error in file: $jsonFile. Attempting to fix duplicate keys.\n";
+        if ($lines === false) {
+            echo "Error reading file: $jsonFile\n";
+            continue;
+        }
 
-            // Use regex to find duplicate '活动' keys
-            preg_match_all('/"活动"\s*:\s*(".*?")(,|\s*\})/u', $jsonContent, $matches, PREG_OFFSET_CAPTURE);
+        $insideDaysData = false;
+        $braceDepth = 0;
+        $currentDay = '';
+        $daysDataContent = '';
+        $modified = false;
+        $newLines = [];
+        $activities = [];
+        $dayBuffer = '';
+        $insideDay = false;
 
-            if (count($matches[0]) > 0) {
-                $activities = [];
-                $positions = [];
-                // Collect all '活动' values and their positions
-                foreach ($matches[0] as $index => $match) {
-                    $activities[] = json_decode($matches[1][$index][0]);
-                    $positions[] = $match[1];
-                }
+        foreach ($lines as $line) {
+            // Trim whitespace from the line
+            $trimmedLine = trim($line);
 
-                // Remove all '活动' entries from the JSON content
-                // We need to do this in reverse order to not mess up positions
-                for ($i = count($positions) - 1; $i >= 0; $i--) {
-                    $startPos = $positions[$i];
-                    $length = strlen($matches[0][$i][0]);
-                    $jsonContent = substr_replace($jsonContent, '', $startPos, $length);
-                }
+            // Check if we are entering or exiting the 'daysData' array
+            if (strpos($trimmedLine, '"daysData"') !== false) {
+                $insideDaysData = true;
+                $newLines[] = $line;
+                continue;
+            }
 
-                // Decode the modified JSON content
-                $data = json_decode($jsonContent, true);
-
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    echo "Still unable to parse JSON in file: $jsonFile\n";
+            if ($insideDaysData) {
+                // Check for array start and end
+                if (strpos($trimmedLine, '[') !== false) {
+                    $braceDepth++;
+                    $newLines[] = $line;
                     continue;
                 }
 
-                // Now, add the activities back with new keys
-                $activityCount = 1;
-                foreach ($activities as $activity) {
-                    $data['daysData'][0]['活动' . $activityCount] = $activity;
-                    $activityCount++;
+                if (strpos($trimmedLine, ']') !== false) {
+                    $braceDepth--;
+                    $insideDaysData = false;
+                    $newLines[] = $line;
+                    continue;
                 }
 
-                $modified = true;
-            } else {
-                echo "Unable to fix JSON in file: $jsonFile\n";
-                continue;
-            }
-        } else {
-            $modified = false;
-
-            // Process each day in daysData
-            if (isset($data['daysData']) && is_array($data['daysData'])) {
-                foreach ($data['daysData'] as &$day) {
+                // Check for object start
+                if (strpos($trimmedLine, '{') !== false) {
+                    $braceDepth++;
+                    $insideDay = true;
+                    $dayBuffer = $line;
                     $activities = [];
-                    // Collect all keys that are '活动'
-                    foreach ($day as $key => $value) {
-                        if ($key === '活动') {
-                            $activities[] = $value;
-                            unset($day[$key]);
-                            $modified = true;
-                        }
-                    }
-
-                    // If '活动' is an array, split it into individual activities
-                    if (isset($day['活动']) && is_array($day['活动'])) {
-                        foreach ($day['活动'] as $activity) {
-                            $activities[] = $activity;
-                        }
-                        unset($day['活动']);
-                        $modified = true;
-                    }
-
-                    // Rename all activities to '活动1', '活动2', etc.
-                    if (!empty($activities)) {
-                        $activityCount = 1;
-                        foreach ($activities as $activity) {
-                            $day['活动' . $activityCount] = $activity;
-                            $activityCount++;
-                        }
-                    }
+                    continue;
                 }
-                unset($day); // Unset reference to avoid unexpected behavior
+
+                // Check for object end
+                if (strpos($trimmedLine, '}') !== false) {
+                    $braceDepth--;
+                    $insideDay = false;
+
+                    // After collecting all lines for the day, process the day
+                    $dayBuffer .= $line;
+                    $dayContent = processDay($dayBuffer, $activities);
+
+                    $newLines[] = $dayContent;
+
+                    $modified = true;
+                    continue;
+                }
+
+                if ($insideDay) {
+                    // Collect '活动' entries and other lines
+                    if (strpos($trimmedLine, '"活动"') !== false) {
+                        // Extract the '活动' value
+                        $activityValue = getActivityValue($trimmedLine);
+                        $activities[] = $activityValue;
+                    } else {
+                        // Add line to day buffer
+                        $dayBuffer .= $line;
+                    }
+                } else {
+                    // Add line to daysData content
+                    $newLines[] = $line;
+                }
             } else {
-                echo "No 'daysData' found or it's not an array in file: $jsonFile\n";
-                continue;
+                // Add line to newLines
+                $newLines[] = $line;
             }
         }
 
-        // Save the modified data back to the JSON file
+        // Write the modified content back to the file
         if ($modified) {
-            // Reorder the keys to maintain the original order
-            $newJsonContent = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-            if (file_put_contents($jsonFile, $newJsonContent) === false) {
+            $newContent = implode('', $newLines);
+            if (file_put_contents($jsonFile, $newContent) === false) {
                 echo "Error writing to file: $jsonFile\n";
             } else {
                 echo "File updated successfully: $jsonFile\n";
@@ -115,6 +113,55 @@ function processJsonFiles($directory) {
             echo "No changes made to file: $jsonFile\n";
         }
     }
+}
+
+/**
+ * Processes a day object, combining '活动' entries into an array.
+ *
+ * @param string $dayBuffer The string content of the day object.
+ * @param array $activities The collected activities.
+ * @return string The modified day object content.
+ */
+function processDay($dayBuffer, $activities)
+{
+    // Remove trailing commas and whitespace
+    $dayBuffer = trim($dayBuffer, ", \n\r\t");
+
+    // Build the '活动' array content
+    $activityEntries = '';
+    if (!empty($activities)) {
+        $activityArray = json_encode($activities, JSON_UNESCAPED_UNICODE);
+        $activityEntries = "\n    \"活动\": $activityArray";
+    }
+
+    // Remove any '活动' entries from dayBuffer
+    $dayBuffer = preg_replace('/\s*"活动"\s*:\s*(".*?"|\[.*?\]|\{.*?\})(,?)/us', '', $dayBuffer);
+
+    // Remove any trailing commas after the previous removal
+    $dayBuffer = preg_replace('/,\s*}/us', "\n}", $dayBuffer);
+
+    // Insert the '活动' array before the closing brace
+    $dayBuffer = rtrim($dayBuffer, "\n\r\t }") . ",$activityEntries\n  }";
+
+    return $dayBuffer;
+}
+
+/**
+ * Extracts the activity value from a line containing '活动'.
+ *
+ * @param string $line The line containing '活动'.
+ * @return string The activity value.
+ */
+function getActivityValue($line)
+{
+    // Match the '活动' line to extract the value
+    if (preg_match('/"活动"\s*:\s*(.*?)(,?\s*$)/us', $line, $matches)) {
+        $value = trim($matches[1]);
+        // Remove surrounding quotes if present
+        $value = trim($value, '"');
+        return $value;
+    }
+    return '';
 }
 
 // Specify the directory containing the JSON files
