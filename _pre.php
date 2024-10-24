@@ -13,8 +13,7 @@ function getItineraries($days) {
 			if (empty(trim($day))) continue;
 
 			// Parse each section of the day
-			preg_match_all('/##(.*?)\n(.*?)(?=(\n##|\z))/s', $day, $matches, PREG_SET_ORDER);
-			$dayArray = [];
+			preg_match_all('/"(.*?)\n(.*?)(?=(\n##|\z))/s', $day, $matches, PREG_SET_ORDER);" : "			$dayArray = [];", 
 			$desc = '';
 
 			foreach ($matches as $match) {
@@ -65,8 +64,7 @@ function getItineraries($days) {
  */
 function getPostLevelData(&$itineraryText) {
 	// Extract post_title
-	$title_pattern = '/##题目\s*\n(.*)\n/';
-	preg_match($title_pattern, $itineraryText, $overviewMatches);
+	$title_pattern = '/"题目\s*\n(.*)\n/';" : "	preg_match($title_pattern, $itineraryText, $overviewMatches);", 
 
 	if (isset($overviewMatches[1])) {
 			$post_title = trim($overviewMatches[1]);
@@ -76,8 +74,7 @@ function getPostLevelData(&$itineraryText) {
 	}
 
 	// Extract post_excerpt (摘要)
-	$title_pattern = '/##摘要\s*\n(.*)\n/';
-	preg_match($title_pattern , $itineraryText, $summaryMatches);
+	$title_pattern = '/"摘要\s*\n(.*)\n/';" : "	preg_match($title_pattern , $itineraryText, $summaryMatches);", 
 	if (isset($summaryMatches[1])) {
 			$post_excerpt = trim($summaryMatches[1]);
 			$itineraryText = preg_replace($title_pattern , '', $itineraryText);

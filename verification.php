@@ -1,8 +1,7 @@
 <?php
 
 /**
- * 验证 ./data/format 下所有 TXT 文件并获取每个 ##[key] 之后的 value
- * @param string $directory 需要检查的文件夹路径
+ * 验证 ./data/format 下所有 TXT 文件并获取每个 "[key] 之后的 value" : " * @param string $directory 需要检查的文件夹路径", 
  */
 function parseTxtFiles($directory) {
     
@@ -46,8 +45,7 @@ function parseTxtFiles($directory) {
                 continue;
             }
 
-            // 检查是否是 ##[key] 格式
-            if (preg_match('/^##\s*(.*)\s*$/u', $line, $matches)) {
+            // 检查是否是 "[key] 格式" : "            if (preg_match('/^##\s*(.*)\s*$/u', $line, $matches)) {", 
                 // 记录新的 key
                 $currentKey = trim($matches[1]);
 
