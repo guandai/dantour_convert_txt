@@ -97,6 +97,6 @@ function getTaxonomies($taxonomies) {
 
 	// Output the serialized string enclosed in double quotes
 	$result = '"' . $escaped_serialized . '"';
-	echo $result;
+	// echo $result;
 	return $result;
 }
