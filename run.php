@@ -83,7 +83,7 @@ function display_usage($scriptName) {
  */
 function getNewFilePath ($arg) {
     // Directory containing the .txt files
-    $folderPath = './data/format';
+    $folderPath = './data/txt';
     // Ensure the folder path does not end with a slash
     $folderPath = rtrim($folderPath, '/');
 
