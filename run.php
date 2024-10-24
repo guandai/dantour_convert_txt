@@ -30,39 +30,6 @@ function getIndex ($header , $templateHandle) {
     return [$itineraryDataIndex, $postTitleIndex, $postExcerptIndex, $postTaxonomiesIndex];
 }
 
-/**
- * Extracts post_title and post_excerpt from the itinerary text.
- *
- * @param string $itineraryText Itinerary text to extract data from.
- * @return array Extracted post_title and post_excerpt.
- */
-function getPostLevelData(&$itineraryText) {
-    // Extract post_title (概述中的标题)
-    $title_pattern = '/##概述\s*\n(.*)\n/';
-    preg_match($title_pattern, $itineraryText, $overviewMatches);
-
-    if (isset($overviewMatches[1])) {
-        $post_title = trim($overviewMatches[1]);
-        $itineraryText = preg_replace($title_pattern, '', $itineraryText);
-    } else {
-        $post_title = 'Unknown Title';  // Default if no match
-    }
-
-    // Extract post_excerpt (摘要)
-    $title_pattern = '/##摘要\s*\n(.*)\n/';
-    preg_match($title_pattern , $itineraryText, $summaryMatches);
-    if (isset($summaryMatches[1])) {
-        $post_excerpt = trim($summaryMatches[1]);
-        $itineraryText = preg_replace($title_pattern , '', $itineraryText);
-    } else {
-        $post_excerpt = $post_title;  // Default if no match
-    }
-
-    
-    return [$post_title, $post_excerpt, $itineraryText];
-}
-
-
 
 /**
  * Converts itinerary text files to serialized data.
