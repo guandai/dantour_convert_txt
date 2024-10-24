@@ -5,11 +5,18 @@
  * @param string $directory 需要检查的文件夹路径
  */
 function parseTxtFiles($directory) {
-    // 定义允许的key
-    $allowedKeys = [
-        '天数', '参考航班', '早餐', '午餐', '晚餐', '交通', '城市', '日期', 
-        '提示', '备注', '游轮时刻参考', '早上', '晚上', '傍晚', '下午', 
-        '活动', '住宿', '注释', '摘要', '题目', '主题', '概要'
+    
+    $allowedKeysDayMust = [
+        '天数', '早餐', '午餐', '晚餐', '交通', '城市', '日期', '活动', '住宿'
+    ];
+    
+    // 定义允许的keyOptional
+    $allowedKeysDayOptional = [
+        '参考航班', '提示', '备注', '游轮时刻参考', '早上', '晚上', '傍晚', '下午', '注释', '摘要', '主题', 
+    ];
+
+    $allowedKeysTrip = [
+        '题目', '概要'
     ];
 
     // 遍历指定目录中的所有 .txt 文件
@@ -40,7 +47,7 @@ function parseTxtFiles($directory) {
             }
 
             // 检查是否是 ##[key] 格式
-            if (preg_match('/^##(.*)$/', $line, $matches)) {
+            if (preg_match('/^##\s*(.*)\s*$/u', $line, $matches)) {
                 // 记录新的 key
                 $currentKey = trim($matches[1]);
 
