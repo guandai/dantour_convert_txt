@@ -1,9 +1,8 @@
 <?php
 
 include '_gen-wp-term.php';
-include '_pre_json.php';
-define('DEFAULT_EXTENSION', 'json');
-define('DEFAULT_FILE_PATTERN', '*.'. DEFAULT_EXTENSION );
+include '_pre_txt.php';
+define('DEFAULT_FILE_PATTERN', '*.txt');
 define('DEFAULT_TEMPLATE', 'template.csv');
 
 // Check if the script is run from the command line
@@ -42,17 +41,19 @@ function display_usage($scriptName) {
     exit(1);
 }
 
+
 /**
- * Get the new file path, template handle, and list of .json files.
+ * Get the new file path, template handle, and list of .txt files.
  *
  * @param array $arg Command line arguments.
- * @return array New file path, template handle, and list of .json files.
+ * @return array New file path, template handle, and list of .txt files.
  */
 function getNewFilePath ($arg) {
-    // Directory containing the .json files
-    $folderPath = './data/' . DEFAULT_EXTENSION;
+    // Directory containing the .txt files
+    $folderPath = './data/txt';
     // Ensure the folder path does not end with a slash
     $folderPath = rtrim($folderPath, '/');
+
 
     // Get the file pattern from the first argument if provided, else default to DEFAULT_FILE_PATTERN
     $filePattern = $arg[1] ?? DEFAULT_FILE_PATTERN;
@@ -63,12 +64,13 @@ function getNewFilePath ($arg) {
         display_usage($arg[0]);
     }
 
+    
     $fileSuffix = $filePattern == DEFAULT_FILE_PATTERN ? '' : '_'. $filePattern;
     $newFilePath = 'output'. $fileSuffix .'.csv';      // Specify the path for the updated CSV
 
     // Construct the full glob pattern
     $globPattern = $folderPath . '/' . $filePattern;
-
+   
     // Open the CSV template for reading
     if (($templateHandle = fopen(DEFAULT_TEMPLATE, "r")) == FALSE) {
         die("Error opening the template CSV file for reading: {constant('DEFAULT_TEMPLATE')} \n");
@@ -82,6 +84,7 @@ function getNewFilePath ($arg) {
 
     return [$newFilePath, $templateHandle, $txtFiles];
 }
+
 
 /**
  * Get the output handle for writing the updated CSV.
@@ -102,26 +105,24 @@ function getOutputHandle ($newFilePath, $header) {
     return $outputHandle;
 }
 
+
 /**
  * Write the updated data to the output CSV.
  *
  * @param resource $templateHandle Handle to the template CSV file.
  * @param resource $outputHandle Handle to the output CSV file.
- * @param array $txtFiles List of .json .txt files to process.
+ * @param array $txtFiles List of .txt files to process.
  * @param array $header Header row of the CSV file.
  */
 function writeToOutput ($templateHandle, $outputHandle, $txtFiles, $header) {
     [$itineraryDataIndex, $postTitleIndex, $postExcerptIndex, $postTaxonomiesIndex] = getIndex($header , $templateHandle);
 
-    // Process each .json .txt file
+    // Process each .txt file
     foreach ($txtFiles as $txtFile) {
-        echo "\n\n";
         echo "Processing file: $txtFile\n";
 
-        // Extract data from the .json file
-        // convert_json_to_data or convert_txt_to_data
-        $convertFnName = 'convert_' . DEFAULT_EXTENSION . '_to_data';
-        [$serializedItineraries, $serializedTaxonomies, $post_title, $post_excerpt] = $convertFnName($txtFile);
+        // Extract data from the .txt file
+        [$serializedItineraries, $serializedTaxonomies, $post_title, $post_excerpt] = convert_text_to_data($txtFile);
 
         // Reset the template data for each row
         fseek($templateHandle, 0);  // Reset template pointer to the start
@@ -141,7 +142,9 @@ function writeToOutput ($templateHandle, $outputHandle, $txtFiles, $header) {
     }
 }
 
-// Main script execution
+
+
+
 [$newFilePath, $templateHandle, $txtFiles]  = getNewFilePath($argv);
 $header = fgetcsv($templateHandle);  // Read the header row
 $outputHandle = getOutputHandle($newFilePath, $header);

@@ -62,3 +62,46 @@ function getPostLevelData($tripData) {
     $post_excerpt = trim($tripData['概要'] ?? $post_title);
     return [$post_title, $post_excerpt];
 }
+
+
+
+/**
+ * Converts itinerary JSON files to serialized data.
+ *
+ * @param string $filePath Path to the itinerary JSON file.
+ * @return array Extracted data including post_title, post_excerpt, and serialized itineraries.
+ */
+function convert_json_to_data($filePath) {
+    // Check if the file exists
+    if (!file_exists($filePath)) {
+        die("File not found: $filePath\n");
+    }
+
+    // Read the contents of the JSON file
+    $jsonContent = file_get_contents($filePath);
+    $data = json_decode($jsonContent, true);
+
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        die("Invalid JSON format in file: $filePath\n");
+    }
+
+    // Extract post_title and post_excerpt
+    [$post_title, $post_excerpt] = getPostLevelData($data['tripData'] ?? []);
+
+    // Get itineraries
+    $itineraries = getItineraries($data['daysData'] ?? []);
+
+    // Taxonomies
+    $taxonomies = [
+        'itinerary_types' => [],
+        'travel_locations' => [],
+        'activity' => ['coffee', 'shopping'],
+        'travel_keywords' => [$file_name = pathinfo($filePath, PATHINFO_BASENAME)],
+    ];
+
+    // Serialize the array of itineraries and taxonomies
+    $serializedItineraries = serialize($itineraries);
+    $serializedTaxonomies = getTaxonomies($taxonomies);
+
+    return [$serializedItineraries, $serializedTaxonomies, $post_title, $post_excerpt];
+}

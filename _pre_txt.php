@@ -88,3 +88,36 @@ function getPostLevelData(&$itineraryText) {
 	
 	return [$post_title, $post_excerpt, $itineraryText];
 }
+
+
+/**
+ * Converts itinerary text files to serialized data.
+ *
+ * @param string $filePath Path to the itinerary text file.
+ * @return array Extracted data including post_title, post_excerpt, and serialized itineraries.
+ */
+function convert_text_to_data($filePath) {
+	// Check if the file exists
+	if (!file_exists($filePath)) {
+			die("File not found: $filePath\n");
+	}
+
+	// Read the contents of the file
+	$itineraryText = file_get_contents($filePath);
+	[$post_title, $post_excerpt, $itineraryText] = getPostLevelData($itineraryText);
+
+	// Split into sections based on "-----------------------------------"
+	$days = preg_split('/-{3,}/', $itineraryText);
+
+	$taxonomies = [
+			'itinerary_types' => [],
+			'travel_locations' => [],
+			'activity' => ['coffee', 'shopping'],
+			'travel_keywords' => [$file_name = pathinfo($filePath, PATHINFO_BASENAME)],
+	];
+
+	// Serialize the array of itineraries
+	$serializedItineraries = serialize(getItineraries($days));
+	$serializedTaxonomies = getTaxonomies($taxonomies);
+	return [$serializedItineraries, $serializedTaxonomies, $post_title, $post_excerpt];
+}
