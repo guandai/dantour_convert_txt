@@ -30,22 +30,16 @@ function getItineraries($days) {
         $desc .= "<strong>午餐</strong>: {$dayArray['lunch']} ";
         $desc .= "<strong>晚餐</strong>: {$dayArray['dinner']}</p>";
 
-        // Activities
-        if (!empty($day['活动']) && is_array($day['活动'])) {
-            foreach ($day['活动'] as $activity) {
-                // Remove '-- ' at the beginning
-                $activity = preg_replace('/^--\s*/', '', $activity);
-                $desc .= "<p>$activity</p>";
+        foreach(['活动','提示','参考航班'] as $name) {
+            if (!empty($day[$name]) && is_array($day[$name])) {
+                foreach ($day[$name] as $data) {
+                    // Remove '-- ' at the beginning
+                    $data = preg_replace('/^--\s*/', '', $data);
+                    $desc .= "<strong>$name</strong>: <p>$data</p>";
+                }
             }
         }
-
-        if (!empty($day['提示']) && is_array($day['提示'])) {
-            foreach ($day['提示'] as $activity) {
-                // Remove '-- ' at the beginning
-                $tips = preg_replace('/^--\s*/', '', $activity);
-                $desc .= "<p>$tips</p>";
-            }
-        }
+        
 
         if (!empty($desc)) {
             $dayArray['desc'] = $desc;
