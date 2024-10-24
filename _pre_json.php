@@ -6,7 +6,7 @@
  * @param array $days Array of days in the itinerary from JSON data.
  * @return array Extracted itineraries.
  */
-function getItineraries($days) {
+function _getItinerariesJson($days) {
     $itineraries = [];
 
     foreach ($days as $day) {
@@ -57,7 +57,7 @@ function getItineraries($days) {
  * @param array $tripData Trip data to extract data from.
  * @return array Extracted post_title and post_excerpt.
  */
-function getPostLevelData($tripData) {
+function _getPostLevelDataJson($tripData) {
     $post_title = trim($tripData['题目'] ?? '无主题');
     $post_excerpt = trim($tripData['概要'] ?? $post_title);
     return [$post_title, $post_excerpt];
@@ -86,10 +86,10 @@ function convert_json_to_data($filePath) {
     }
 
     // Extract post_title and post_excerpt
-    [$post_title, $post_excerpt] = getPostLevelData($data['tripData'] ?? []);
+    [$post_title, $post_excerpt] = _getPostLevelDataJson($data['tripData'] ?? []);
 
     // Get itineraries
-    $itineraries = getItineraries($data['daysData'] ?? []);
+    $itineraries = _getItinerariesJson($data['daysData'] ?? []);
 
     // Taxonomies
     $taxonomies = [

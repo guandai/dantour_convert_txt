@@ -6,7 +6,7 @@
  * @param array $days Array of days in the itinerary.
  * @return array Extracted itineraries.
  */
-function getItineraries($days) {
+function _getItinerariesTxt($days) {
 	$itineraries = [];
 
 	foreach ($days as $day) {
@@ -63,7 +63,7 @@ function getItineraries($days) {
  * @param string $itineraryText Itinerary text to extract data from.
  * @return array Extracted post_title and post_excerpt.
  */
-function getPostLevelData(&$itineraryText) {
+function _getPostLevelDataTxt(&$itineraryText) {
 	// Extract post_title
 	$title_pattern = '/##概述\s*\n(.*)\n/';
 	preg_match($title_pattern, $itineraryText, $overviewMatches);
@@ -96,7 +96,7 @@ function getPostLevelData(&$itineraryText) {
  * @param string $filePath Path to the itinerary text file.
  * @return array Extracted data including post_title, post_excerpt, and serialized itineraries.
  */
-function convert_text_to_data($filePath) {
+function convert_txt_to_data($filePath) {
 	// Check if the file exists
 	if (!file_exists($filePath)) {
 			die("File not found: $filePath\n");
@@ -104,7 +104,7 @@ function convert_text_to_data($filePath) {
 
 	// Read the contents of the file
 	$itineraryText = file_get_contents($filePath);
-	[$post_title, $post_excerpt, $itineraryText] = getPostLevelData($itineraryText);
+	[$post_title, $post_excerpt, $itineraryText] = _getPostLevelDataTxt($itineraryText);
 
 	// Split into sections based on "-----------------------------------"
 	$days = preg_split('/-{3,}/', $itineraryText);
@@ -117,7 +117,7 @@ function convert_text_to_data($filePath) {
 	];
 
 	// Serialize the array of itineraries
-	$serializedItineraries = serialize(getItineraries($days));
+	$serializedItineraries = serialize(_getItinerariesTxt($days));
 	$serializedTaxonomies = getTaxonomies($taxonomies);
 	return [$serializedItineraries, $serializedTaxonomies, $post_title, $post_excerpt];
 }

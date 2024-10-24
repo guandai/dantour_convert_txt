@@ -1,9 +1,24 @@
 <?php
 
 include '_gen-wp-term.php';
-include '_pre_json.php';
-define('DEFAULT_EXTENSION', 'json');
-define('DEFAULT_FILE_PATTERN', '*.'. DEFAULT_EXTENSION );
+include '_pre_json.php'; // Contains convert_json_to_data function
+include '_pre_txt.php';  // Contains convert_txt_to_data function
+
+// Parse command-line arguments
+$options = getopt('', ['format:']);
+
+// Set the format, default to 'json' if not provided
+$format = $options['format'] ?? 'json';
+
+// Validate the format
+$allowedFormats = ['json', 'txt'];
+if (!in_array($format, $allowedFormats)) {
+    die("Invalid format specified. Allowed formats are 'json' and 'txt'.\n");
+}
+
+// Define constants based on the format
+define('DEFAULT_EXTENSION', $format);
+define('DEFAULT_FILE_PATTERN', '*.' . DEFAULT_EXTENSION);
 define('DEFAULT_TEMPLATE', 'template.csv');
 
 // Check if the script is run from the command line
@@ -12,12 +27,25 @@ if (php_sapi_name() !== 'cli') {
 }
 
 /**
- *  
- * @param array $header Header row of the CSV file.
- * @param string $templateHandle Handle to the template CSV file.
- * @return array Index of the required columns in the CSV file.
+ * Displays usage instructions.
+ *
+ * @param string $scriptName Name of the script.
  */
-function getIndex ($header , $templateHandle) {
+function display_usage($scriptName) {
+    echo "Usage: php $scriptName [--format=json|txt] [file_pattern]\n";
+    echo "Example: php $scriptName --format=json '*.json'\n";
+    echo "Default format is 'json' if not specified.\n";
+    exit(1);
+}
+
+/**
+ * Get the index of the required columns in the CSV file.
+ *
+ * @param array $header Header row of the CSV file.
+ * @param resource $templateHandle Handle to the template CSV file.
+ * @return array Indexes of the required columns.
+ */
+function getIndex($header, $templateHandle) {
     // Determine the index of the required columns
     $itineraryDataIndex = array_search('wp_travel_trip_itinerary_data', $header);
     $postTitleIndex = array_search('post_title', $header);
@@ -30,32 +58,31 @@ function getIndex ($header , $templateHandle) {
     return [$itineraryDataIndex, $postTitleIndex, $postExcerptIndex, $postTaxonomiesIndex];
 }
 
-
 /**
- * Displays usage instructions.
- *
- * @param string $scriptName Name of the script.
- */
-function display_usage($scriptName) {
-    echo "Usage: php $scriptName <file_pattern>\n";
-    echo "Example: php $scriptName " . DEFAULT_FILE_PATTERN . "\n";
-    exit(1);
-}
-
-/**
- * Get the new file path, template handle, and list of .json files.
+ * Get the new file path, template handle, and list of files.
  *
  * @param array $arg Command line arguments.
- * @return array New file path, template handle, and list of .json files.
+ * @return array New file path, template handle, and list of files.
  */
-function getNewFilePath ($arg) {
-    // Directory containing the .json files
+function getNewFilePath($arg) {
+    // Directory containing the files
     $folderPath = './data/' . DEFAULT_EXTENSION;
     // Ensure the folder path does not end with a slash
     $folderPath = rtrim($folderPath, '/');
 
+    // Remove script name from arguments
+    array_shift($arg);
+
+    // Remove '--format' option and its value from $arg
+    foreach ($arg as $key => $value) {
+        if (strpos($value, '--format=') === 0) {
+            unset($arg[$key]);
+        }
+    }
+    $arg = array_values($arg); // Re-index the array
+
     // Get the file pattern from the first argument if provided, else default to DEFAULT_FILE_PATTERN
-    $filePattern = $arg[1] ?? DEFAULT_FILE_PATTERN;
+    $filePattern = $arg[0] ?? DEFAULT_FILE_PATTERN;
 
     // Optional: Validate the file pattern (basic validation)
     if (!is_string($filePattern) || empty($filePattern)) {
@@ -63,15 +90,15 @@ function getNewFilePath ($arg) {
         display_usage($arg[0]);
     }
 
-    $fileSuffix = $filePattern == DEFAULT_FILE_PATTERN ? '' : '_'. $filePattern;
-    $newFilePath = 'output'. $fileSuffix .'.csv';      // Specify the path for the updated CSV
+    $fileSuffix = $filePattern == DEFAULT_FILE_PATTERN ? '' : '_' . $filePattern;
+    $newFilePath = 'output' . $fileSuffix . '.csv'; // Specify the path for the updated CSV
 
     // Construct the full glob pattern
     $globPattern = $folderPath . '/' . $filePattern;
 
     // Open the CSV template for reading
     if (($templateHandle = fopen(DEFAULT_TEMPLATE, "r")) == FALSE) {
-        die("Error opening the template CSV file for reading: {constant('DEFAULT_TEMPLATE')} \n");
+        die("Error opening the template CSV file for reading: " . DEFAULT_TEMPLATE . "\n");
     }
 
     // Scan the folder for all matching files
@@ -90,7 +117,7 @@ function getNewFilePath ($arg) {
  * @param array $header Header row of the CSV file.
  * @return resource Handle to the output CSV file.
  */
-function getOutputHandle ($newFilePath, $header) {
+function getOutputHandle($newFilePath, $header) {
     // Create a new CSV for writing the output
     if (($outputHandle = fopen($newFilePath, 'w')) == FALSE) {
         die("Error opening the file for writing: $newFilePath\n");
@@ -107,20 +134,26 @@ function getOutputHandle ($newFilePath, $header) {
  *
  * @param resource $templateHandle Handle to the template CSV file.
  * @param resource $outputHandle Handle to the output CSV file.
- * @param array $txtFiles List of .json .txt files to process.
+ * @param array $txtFiles List of files to process.
  * @param array $header Header row of the CSV file.
  */
-function writeToOutput ($templateHandle, $outputHandle, $txtFiles, $header) {
-    [$itineraryDataIndex, $postTitleIndex, $postExcerptIndex, $postTaxonomiesIndex] = getIndex($header , $templateHandle);
+function writeToOutput($templateHandle, $outputHandle, $txtFiles, $header) {
+    [$itineraryDataIndex, $postTitleIndex, $postExcerptIndex, $postTaxonomiesIndex] = getIndex($header, $templateHandle);
 
-    // Process each .json .txt file
+    // Process each file
     foreach ($txtFiles as $txtFile) {
         echo "\n\n";
         echo "Processing file: $txtFile\n";
 
-        // Extract data from the .json file
-        // convert_json_to_data or convert_txt_to_data
+        // Use the converter function based on the format
         $convertFnName = 'convert_' . DEFAULT_EXTENSION . '_to_data';
+
+        // Check if the function exists
+        if (!function_exists($convertFnName)) {
+            die("Conversion function '$convertFnName' does not exist.\n");
+        }
+
+        // Extract data from the file
         [$serializedItineraries, $serializedTaxonomies, $post_title, $post_excerpt] = $convertFnName($txtFile);
 
         // Reset the template data for each row
@@ -142,12 +175,12 @@ function writeToOutput ($templateHandle, $outputHandle, $txtFiles, $header) {
 }
 
 // Main script execution
-[$newFilePath, $templateHandle, $txtFiles]  = getNewFilePath($argv);
+[$newFilePath, $templateHandle, $txtFiles] = getNewFilePath($argv);
 $header = fgetcsv($templateHandle);  // Read the header row
 $outputHandle = getOutputHandle($newFilePath, $header);
 
 // Write the updated data to the output CSV
-writeToOutput ($templateHandle, $outputHandle, $txtFiles, $header);
+writeToOutput($templateHandle, $outputHandle, $txtFiles, $header);
 
 // Close the output file
 fclose($outputHandle);
